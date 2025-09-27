@@ -1,35 +1,33 @@
 pipeline {
-    agent any
+    agent none
 
     tools {
         nodejs "NodeJS"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Docker Agent Build') {
+            agent { label 'docker-agent' }
             steps {
-                git url: 'https://github.com/username/node-js-sample.git',
-                    credentialsId: 'github-username',
-                    branch: 'main'
+                checkout scm
+                sh 'docker build -t node-app .'
+                sh 'docker run -d -p 3000:3000 node-app'
             }
         }
 
-        stage('Install dependencies') {
+        stage('EC2 Agent Build') {
+            agent { label 'ec2-agent' }
             steps {
+                checkout scm
                 sh 'npm install'
-            }
-        }
-
-        stage('Run tests') {
-            steps {
                 sh 'npm test'
             }
         }
+    }
 
-        stage('Build') {
-            steps {
-                sh 'npm run build || echo "No build script found"'
-            }
+    post {
+        always {
+            slackSend(channel: '#jenkins-notifications', message: "Pipeline finished on branch ${env.BRANCH_NAME}")
         }
     }
 }
